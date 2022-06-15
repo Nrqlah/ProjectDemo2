@@ -1,39 +1,29 @@
-/home/appuser/venv/bin/python -m pip install --upgrade pip
 
 import streamlit as st 
-import numpy as np 
+import numpy as np
+import pandas as pd
 
-import matplotlib.pyplot as plt
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
 
-from sklearn.decomposition import PCA
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier
-
 from sklearn.metrics import accuracy_score
 
-st.title('Streamlit Example')
+st.title('Linear Regression Web App')
 
 st.write("""
-# Explore different classifier and datasets
-Which one is the best?
+# Simply use this web app to predict your dataset here
 """)
 
-dataset_name = st.sidebar.selectbox(
-    'Select Dataset',
-    ('Iris', 'Breast Cancer', 'Wine')
+choice = st.sidebar.radio(
+    "Choose a dataset",   
+    ('Default', 'User-defined '),
+    index = 0
+    
 )
 
-st.write(f"## {dataset_name} Dataset")
+st.write(f"## You Have Selected <font color='Aquamarine'>{choice}</font> Dataset", unsafe_allow_html=True)
 
-classifier_name = st.sidebar.selectbox(
-    'Select classifier',
-    ('KNN', 'SVM', 'Random Forest')
-)
-
-def get_dataset(name):
+def get_default_dataset(name):
     data = None
     if name == 'Iris':
         data = datasets.load_iris()
@@ -45,67 +35,54 @@ def get_dataset(name):
     y = data.target
     return X, y
 
-X, y = get_dataset(dataset_name)
-st.write('Shape of dataset:', X.shape)
-st.write('number of classes:', len(np.unique(y)))
-
-def add_parameter_ui(clf_name):
-    params = dict()
-    if clf_name == 'SVM':
-        C = st.sidebar.slider('C', 0.01, 10.0)
-        params['C'] = C
-    elif clf_name == 'KNN':
-        K = st.sidebar.slider('K', 1, 15)
-        params['K'] = K
+def add_dataset_ui(choice_name):
+    X=[]
+    y=[]
+    X_names = []
+    X1 = []
+    if choice_name == 'Default':
+       dataset_name = st.sidebar.selectbox(
+            'Select Dataset',
+            ('Iris', 'Breast Cancer', 'Wine')
+        )
+       X, y = get_default_dataset (dataset_name)
+       X_names = X
     else:
-        max_depth = st.sidebar.slider('max_depth', 2, 15)
-        params['max_depth'] = max_depth
-        n_estimators = st.sidebar.slider('n_estimators', 1, 100)
-        params['n_estimators'] = n_estimators
-    return params
+        uploaded_file = st.sidebar.file_uploader(
+            "Upload a CSV",
+            type='csv'    )
+        
 
-params = add_parameter_ui(classifier_name)
+        if uploaded_file!=None:
+           
+           st.write(uploaded_file)
+           data = pd.read_csv(uploaded_file)
+  
+        
+           y_name = st.sidebar.selectbox(
+                    'Select Label @ y variable',
+                    sorted(data)
+                    )
 
-def get_classifier(clf_name, params):
-    clf = None
-    if clf_name == 'SVM':
-        clf = SVC(C=params['C'])
-    elif clf_name == 'KNN':
-        clf = KNeighborsClassifier(n_neighbors=params['K'])
-    else:
-        clf = clf = RandomForestClassifier(n_estimators=params['n_estimators'], 
-            max_depth=params['max_depth'], random_state=1234)
-    return clf
+           X_names = st.sidebar.multiselect(
+                     'Select Predictors @ X variables.',
+                     sorted(data),
+                     default = sorted(data)[1],
+                     help = "You may select more than one predictor"
+                     )
 
-clf = get_classifier(classifier_name, params)
-#### CLASSIFICATION ####
+           y = data.loc[:,y_name]
+           X = data.loc[:,X_names]
+           X1 = X.select_dtypes(include=['object'])
+        
+           X2 = X.select_dtypes(exclude=['object'])
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1234)
+           if sorted(X1) != []:
+              X1 = X1.apply(LabelEncoder().fit_transform)
+              X = pd.concat([X2,X1],axis=1)
 
-clf.fit(X_train, y_train)
-y_pred = clf.predict(X_test)
+           y = LabelEncoder().fit_transform(y)
+        else:
+           st.write(f"## <font color='Aquamarine'>Note: Please upload a CSV file to analyze the data.</font>", unsafe_allow_html=True)
 
-acc = accuracy_score(y_test, y_pred)
-
-st.write(f'Classifier = {classifier_name}')
-st.write(f'Accuracy =', acc)
-
-#### PLOT DATASET ####
-# Project the data onto the 2 primary principal components
-pca = PCA(2)
-X_projected = pca.fit_transform(X)
-
-x1 = X_projected[:, 0]
-x2 = X_projected[:, 1]
-
-fig = plt.figure()
-plt.scatter(x1, x2,
-        c=y, alpha=0.8,
-        cmap='viridis')
-
-plt.xlabel('Principal Component 1')
-plt.ylabel('Principal Component 2')
-plt.colorbar()
-
-#plt.show()
-st.pyplot(fig)
+    return X,y, X_names, X1
