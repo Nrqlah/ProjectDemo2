@@ -2,6 +2,8 @@ pip install streamlit
 pip install scikit-learn
 pip install matplotlib
 
+/home/appuser/venv/bin/python -m pip install --upgrade pip
+
 import streamlit as st 
 import numpy as np 
 
